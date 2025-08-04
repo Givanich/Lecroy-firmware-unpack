@@ -1,5 +1,6 @@
 import os
 import re
+import locale
 
 def is_valid_hex_line(line):
     """Проверяет, является ли строка валидной записью Intel HEX, включая строки с P:, PA:, PAD:."""
@@ -14,7 +15,7 @@ def is_valid_hex_line(line):
         re.match(pad_pattern, line.strip())
     )
 
-def extract_hex_data(input_file, output_hex_file):
+def extract_hex_data(input_file, output_hex_file, is_russian):
     """Извлекает Intel HEX записи (включая P:, PA:, PAD:) из файла и сохраняет их в выходной hex файл."""
     hex_lines = []
     
@@ -34,10 +35,13 @@ def extract_hex_data(input_file, output_hex_file):
             out.write('\n'.join(hex_lines) + '\n')
         return hex_lines
     else:
-        print("Не найдено валидных Intel HEX записей в файле.")
+        print("Не найдено валидных Intel HEX записей в файле." if is_russian else
+              "No valid Intel HEX records found in the file.")
+        input("Нажмите Enter для выхода..." if is_russian else
+              "Press Enter to exit...")
         return None
 
-def split_hex_file(hex_file):
+def split_hex_file(hex_file, is_russian):
     """Разделяет hex файл на отдельные прошивки по маркеру :00000001FF."""
     with open(hex_file, 'r') as f:
         lines = f.readlines()
@@ -74,7 +78,7 @@ def split_hex_file(hex_file):
 
     return firmware_count, output_files
 
-def hex_to_bin(hex_file, bin_file):
+def hex_to_bin(hex_file, bin_file, is_russian):
     """Преобразует Intel HEX файл в бинарный формат."""
     memory = {}
     current_segment = 0  # Для обработки расширенных адресов (04)
@@ -102,7 +106,8 @@ def hex_to_bin(hex_file, bin_file):
             byte_values = [int(data_line[i:i+2], 16) for i in range(0, len(data_line)-2, 2)]
             calculated_checksum = (256 - (sum(byte_values) & 0xFF)) & 0xFF
             if calculated_checksum != checksum:
-                print(f"Предупреждение: Неверная контрольная сумма в строке {line} файла {hex_file}")
+                print(f"Предупреждение: Неверная контрольная сумма в строке {line} файла {hex_file}" if is_russian else
+                      f"Warning: Invalid checksum in line {line} of file {hex_file}")
                 continue
             
             # Обработка типов записей
@@ -119,7 +124,8 @@ def hex_to_bin(hex_file, bin_file):
                 break
         
         if not memory:
-            print(f"Предупреждение: Нет данных для преобразования в файле {hex_file}")
+            print(f"Предупреждение: Нет данных для преобразования в файле {hex_file}" if is_russian else
+                  f"Warning: No data to convert in file {hex_file}")
             return False
         
         # Определяем максимальный адрес для размера бинарного файла
@@ -136,37 +142,50 @@ def hex_to_bin(hex_file, bin_file):
         return True
     
     except Exception as e:
-        print(f"Ошибка при обработке файла {hex_file}: {str(e)}")
+        print(f"Ошибка при обработке файла {hex_file}: {str(e)}" if is_russian else
+              f"Error processing file {hex_file}: {str(e)}")
         return False
 
 def main():
+    # Определяем язык системы
+    system_locale = locale.getlocale()[0]
+    is_russian = system_locale and 'ru' in system_locale.lower()
+    
     # Сканируем текущую директорию
     folder_path = "."
     files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
     
     if not files:
-        print("В текущей директории нет файлов.")
+        print("В текущей директории нет файлов." if is_russian else
+              "No files found in the current directory.")
+        input("Нажмите Enter для выхода..." if is_russian else
+              "Press Enter to exit...")
         return
     
-    print("Найдены следующие файлы в текущей директории:")
+    print("Найдены следующие файлы в текущей директории:" if is_russian else
+          "The following files were found in the current directory:")
     for i, file in enumerate(files, 1):
         print(f"{i}. {file}")
     
     # Запрашиваем выбор файла
     while True:
         try:
-            choice = input("Введите номер файла для обработки (или 'q' для выхода): ")
+            choice = input("Введите номер файла для обработки (или 'q' для выхода): " if is_russian else
+                           "Enter the file number to process (or 'q' to exit): ")
             if choice.lower() == 'q':
-                print("Программа завершена.")
+                print("Программа завершена." if is_russian else
+                      "Program terminated.")
                 return
             choice = int(choice)
             if 1 <= choice <= len(files):
                 input_file = files[choice - 1]
                 break
             else:
-                print(f"Пожалуйста, выберите номер от 1 до {len(files)}.")
+                print(f"Пожалуйста, выберите номер от 1 до {len(files)}." if is_russian else
+                      f"Please select a number from 1 to {len(files)}.")
         except ValueError:
-            print("Пожалуйста, введите корректный номер или 'q' для выхода.")
+            print("Пожалуйста, введите корректный номер или 'q' для выхода." if is_russian else
+                  "Please enter a valid number or 'q' to exit.")
     
     input_file_path = os.path.join(folder_path, input_file)
     
@@ -175,45 +194,60 @@ def main():
     
     try:
         # Извлекаем HEX данные
-        hex_lines = extract_hex_data(input_file_path, output_hex_file)
+        hex_lines = extract_hex_data(input_file_path, output_hex_file, is_russian)
         
         if hex_lines:
-            print(f"Intel HEX данные (включая P:, PA:, PAD: записи) извлечены и сохранены в {output_hex_file}")
+            print(f"Intel HEX данные (включая P:, PA:, PAD: записи) извлечены и сохранены в {output_hex_file}" if is_russian else
+                  f"Intel HEX data (including P:, PA:, PAD: records) extracted and saved to {output_hex_file}")
             
             # Спрашиваем, нужно ли разделить прошивки
-            split_choice = input("Хотите разделить прошивки на отдельные файлы? (y/n): ").lower()
+            split_choice = input("Хотите разделить прошивки на отдельные файлы? (y/n): " if is_russian else
+                                 "Do you want to split the firmware into separate files? (y/n): ").lower()
             
             output_files = []
             if split_choice == 'y':
-                count, output_files = split_hex_file(output_hex_file)
-                print(f"Найдено прошивок: {count}")
+                count, output_files = split_hex_file(output_hex_file, is_russian)
+                print(f"Найдено прошивок: {count}" if is_russian else
+                      f"Found {count} firmware(s)")
                 if count > 0:
-                    print("Созданы файлы:")
+                    print("Созданы файлы:" if is_russian else
+                          "Created files:")
                     for file in output_files:
                         print(f"- {file}")
                 else:
-                    print("Прошивки не найдены в извлеченных данных.")
+                    print("Прошивки не найдены в извлеченных данных." if is_russian else
+                          "No firmware found in the extracted data.")
                 
                 # Спрашиваем, нужно ли преобразовать разделенные файлы в .bin
                 if output_files:
-                    bin_choice = input("Хотите преобразовать разделенные .hex файлы в .bin формат? (y/n): ").lower()
+                    bin_choice = input("Хотите преобразовать разделенные .hex файлы в .bin формат? (y/n): " if is_russian else
+                                       "Do you want to convert the split .hex files to .bin format? (y/n): ").lower()
                     if bin_choice == 'y':
-                        print("\nПреобразование разделенных файлов в бинарный формат...")
+                        print("\nПреобразование разделенных файлов в бинарный формат..." if is_russian else
+                              "\nConverting split files to binary format...")
                         for hex_file in output_files:
                             bin_file = os.path.splitext(hex_file)[0] + '.bin'
-                            print(f"Обработка файла {hex_file}...")
-                            if hex_to_bin(hex_file, bin_file):
-                                print(f"Успешно создан бинарный файл: {bin_file}")
+                            print(f"Обработка файла {hex_file}..." if is_russian else
+                                  f"Processing file {hex_file}...")
+                            if hex_to_bin(hex_file, bin_file, is_russian):
+                                print(f"Успешно создан бинарный файл: {bin_file}" if is_russian else
+                                      f"Successfully created binary file: {bin_file}")
                             else:
-                                print(f"Не удалось преобразовать файл {hex_file}")
+                                print(f"Не удалось преобразовать файл {hex_file}" if is_russian else
+                                      f"Failed to convert file {hex_file}")
             else:
-                print(f"Разделение прошивок не выполнено. Все данные сохранены в {output_hex_file}.")
+                print(f"Разделение прошивок не выполнено. Все данные сохранены в {output_hex_file}." if is_russian else
+                      f"Firmware splitting not performed. All data saved to {output_hex_file}.")
             
         else:
-            print("Обработка завершена: HEX данные не найдены.")
+            print("Обработка завершена: HEX данные не найдены." if is_russian else
+                  "Processing completed: No HEX data found.")
             
     except Exception as e:
-        print(f"Произошла ошибка: {str(e)}")
+        print(f"Произошла ошибка: {str(e)}" if is_russian else
+              f"An error occurred: {str(e)}")
+        input("Нажмите Enter для выхода..." if is_russian else
+              "Press Enter to exit...")
 
 if __name__ == "__main__":
     main()
